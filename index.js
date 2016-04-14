@@ -1,24 +1,30 @@
 
+var path = require('path');
+var fs   = require('fs');
+var rl   = require('readline');
+
+
+
 /** @const Шаблоны для парсинга файла */
 var patterns = {
 
     /** @regexp Парсинг методов */
-    method: /^(GET|POST|PUT|DELETE):[\t ]*$/gm,
+    method: /^(GET|POST|PUT|DELETE):\s*$/gm,
 
     /** @regexp Парсинг конфигурации */
-    config: /^#[\t ]*(\w+)[\t ]*=[\t ]*(.+)$/gm,
+    config: /^#\s*(\w+)\s*=\s*(.+)$/gm,
 
     /** @regexp Парсинг ссылок и событий*/
-    route: /^([^#][^\s]*)[\t ]+(.+?)$/gm
+    route: /^([^\s]+)\s+([^\s]+?)$/gm
 };
 
 
 /**
  * @constructor
- * @param {string} fileContent Содержимое файла
+ * @param {string} filepath Путь к файлу
  */
-function RtmParser(fileContent) {
-    this.fileContent = fileContent;
+function RtmParser(filepath) {
+    this.filepath = filepath;
     this.rtmList = [];
 }
 
@@ -28,69 +34,47 @@ function RtmParser(fileContent) {
  * @public
  * Парсит файл .rtm
  */
-RtmParser.prototype.parse = function () {
-    this.parseMethods_();
-    this.parseConfig_();
-    this.parseRoutes_();
-    return this;
-};
+RtmParser.prototype.parse = function (callback) {
+    var self = this;
 
-/**
- * @private
- * Парсит методы и записывает индекс на каком символе нашел.
- * По этому индексу определяем куда будем записывать значения
- */
-RtmParser.prototype.parseMethods_ = function () {
-    var match;
+    var lineReader = rl.createInterface({
+        input: fs.createReadStream(this.filepath)
+    });
 
-    while (match = patterns.method.exec(this.fileContent)) {
-        this.rtmList.push({
-            method: match[1],
-            index: match.index,
-            routes: [],
-            config: {}
-        });
-    }
-};
+    var currentConfig;
+    var currentRoute;
 
-/**
- * @private
- * Парсит ссылки и действия и записывает их в общий список
- */
-RtmParser.prototype.parseRoutes_ = function () {
-    var match, i;
+    lineReader.on('close', function () {
+        if (typeof callback === 'function') {
+            callback.call(self);
+        }
+    });
 
-    while (match = patterns.route.exec(this.fileContent)) {
-        for (i = this.rtmList.length - 1; i >= 0; --i) {
-            // console.log(match[0], match[1], match.index);
-            if (match.index <= this.rtmList[i].index) continue;
+    lineReader.on('line', function (line) {
+        var match;
 
-            this.rtmList[i].routes.push({
+        if (match = patterns.method.exec(line)) {
+            self.rtmList.push({
+                method: match[1],
+                routes: []
+            });
+
+            currentConfig = {};
+            currentRoute = self.rtmList[self.rtmList.length - 1];
+
+        } else if (match = patterns.config.exec(line)) {
+            currentConfig[match[1]] = self.parseRtmConfigValue_(match[2]);
+
+        } else if (match = patterns.route.exec(line)) {
+            currentRoute.routes.push({
                 url: match[1],
                 action: match[2],
-                config: this.rtmList[i].config
+                config: currentConfig
             });
-            break;
         }
-    }
-};
+    });
 
-/**
- * @private
- * Парсит конфигурацию для метода
- */
-RtmParser.prototype.parseConfig_ = function () {
-    var match, i;
-
-    while (match = patterns.config.exec(this.fileContent)) {
-        for (i = this.rtmList.length - 1; i >= 0; --i) {
-            if (match.index <= this.rtmList[i].index) continue;
-
-            /* todo: нужны конфигурации по-умолчанию для каждого метода */
-            this.rtmList[i].config[match[1]] = this.parseRtmConfigValue_(match[2]);
-            break;
-        }
-    }
+    return this;
 };
 
 /**
@@ -120,23 +104,25 @@ RtmParser.prototype.parseRtmConfigValue_ = function (matchedValue) {
 RtmParser.prototype.toObject = function () {
     var rtmObject = {};
 
-    $.each(this.rtmList, function (rtmPart) {
+    for (var i = 0, max = this.rtmList.length; i < max; ++i) {
+        var rtmPart = this.rtmList[i];
+
         if (rtmObject[rtmPart.method] == null) {
             rtmObject[rtmPart.method] = [];
         }
 
-        $.push.apply(rtmObject[rtmPart.method], rtmPart.routes);
-    });
+        [].push.apply(rtmObject[rtmPart.method], rtmPart.routes);
+    }
 
     return rtmObject;
 };
 
 
 /**
- * Обертка для модуля, чтобы не писать ключевое слово new
- * @param {string} fileContent
+ * Обертка для модуля
+ * @param {string} filepath
  * @see RtmParser
  */
-module.exports = function (fileContent) {
-    return new RtmParser(fileContent);
+module.exports = function (filepath) {
+    return new RtmParser(filepath);
 };
