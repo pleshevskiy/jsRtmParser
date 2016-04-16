@@ -155,7 +155,7 @@ parseRtmConfigValue_ = function (matchedValue) {
         result = matchedValue === 'true';
     } else if (!isNaN(+matchedValue)) {
         result = +matchedValue;
-    } else if (match = patterns.regExp.test(matchedValue)) {
+    } else if (match = patterns.regExp.exec(matchedValue)) {
         result = new RegExp(match[1], match[2]);
     } else {
         result = matchedValue;
