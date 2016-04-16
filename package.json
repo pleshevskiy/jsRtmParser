@@ -1,0 +1,30 @@
+{
+  "name": "rtm-parser",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pleshevskiy/jsRtmParser.git"
+  },
+  "keywords": [
+    "nodejs",
+    "parser",
+    "rtm",
+    "router",
+    "map",
+    "plapped"
+  ],
+  "author": "Pleshevskiy Dmitriy <pleshevskiy@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/pleshevskiy/jsRtmParser/issues"
+  },
+  "homepage": "https://github.com/pleshevskiy/jsRtmParser#readme",
+  "dependencies": {
+    "njs-utils": "^1.0.2"
+  }
+}
