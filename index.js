@@ -21,7 +21,7 @@ var patterns = {
     method: /^(GET|POST|PUT|DELETE):\s*$/,
 
     /** @regexp Парсинг конфигурации */
-    config: /^(\s*)(@\w*?)\.(\w+)\s*=\s*(.+)$/,
+    config: /^(\s*)(@[\.:])(\w+)\s*=\s*(.+)$/,
 
     /** @regexp Парсинг ссылок и событий*/
     route: /^(\s*)([^\s]+)\s+([^\s]+?)$/
@@ -69,16 +69,14 @@ $.extend(RtmParser.prototype, {
                     routes: []
                 });
 
-                methodConfig = {};
+                methodConfig = $.clone(globalConfig);
                 currentRoute = self.rtmList[self.rtmList.length - 1];
 
             } else if (match = patterns.config.exec(line)) {
-                var _config;
+                var obj = {}, _config;
 
                 if (currentRoute == null) {
                     _config = globalConfig;
-                } else if (preventRouteWhiteSpace.length && preventRouteWhiteSpace <= match[1]) {
-                    _config = currentConfig;
                 } else {
                     _config = methodConfig;
                 }
@@ -87,25 +85,31 @@ $.extend(RtmParser.prototype, {
                 var _value = parseRtmConfigValue_(match[4]);
 
                 switch (match[2]) {
-                    case '@': {
-                        _config[_key] = _value;
+                    case '@.': {
+                        obj[_key] = _value;
                         break;
                     }
-                    case '@p': {
-                        _config.patterns || (_config.patterns = {});
-                        _config.patterns[_key] = _value;
+                    case '@:': {
+                        obj.patterns || (obj.patterns = {});
+                        obj.patterns[_key] = _value;
                         break;
                     }
                 }
 
+                if (currentRoute && preventRouteWhiteSpace.length && preventRouteWhiteSpace <= match[1]) {
+                    $.merge(true, currentConfig, obj);
+                } else {
+                    $.merge(true, _config, obj);
+                }
+
             } else if (match = patterns.route.exec(line)) {
-                currentConfig = $.extend({}, methodConfig, globalConfig);
+                currentConfig = $.merge({}, methodConfig, globalConfig);
                 preventRouteWhiteSpace = match[1];
 
                 currentRoute.routes.push({
                     url: match[2],
                     action: match[3],
-                    config: typeof hooks.setConfig === 'function' ? hooks.setConfig(currentConfig, currentRoute.method) : currentConfig
+                    config: $.isFunction(hooks.setConfig) ? hooks.setConfig(currentConfig, currentRoute.method) : currentConfig
                 });
             }
         });
